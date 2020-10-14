@@ -1,8 +1,22 @@
 import Foundation
 
 public final class Mutex<Wrapped> {
+    public final class Access {
+        private var wrapped: Wrapped
+
+        internal init(_ wrapped: Wrapped) {
+            self.wrapped = wrapped
+        }
+
+        public func callAsFunction<T>(
+            _ closure: (inout Wrapped) throws -> T
+        ) rethrows -> T {
+            try closure(&self.wrapped)
+        }
+    }
+
     private var mutex: pthread_mutex_t
-    private var wrapped: Wrapped
+    private var access: Access
 
     public let type: MutexType
     public let priorityProtocol: MutexPriorityProtocol
@@ -40,7 +54,7 @@ public final class Mutex<Wrapped> {
         policy: MutexPolicy = .default
     ) throws {
         self.mutex = .init()
-        self.wrapped = wrapped
+        self.access = .init(wrapped)
         self.type = type
         self.priorityProtocol = priorityProtocol
         self.processShared = processShared
@@ -57,12 +71,12 @@ public final class Mutex<Wrapped> {
 
     @discardableResult
     public func lock<T>(
-        _ closure: (inout Wrapped) throws -> T
+        _ closure: (Access) throws -> T
     ) throws -> T {
         try self.lock()
 
         let result = Result {
-            try closure(&self.wrapped)
+            try closure(self.access)
         }
 
         try self.unlock()
@@ -72,14 +86,14 @@ public final class Mutex<Wrapped> {
 
     @discardableResult
     public func tryLock<T>(
-        _ closure: (inout Wrapped) throws -> T
+        _ closure: (Access) throws -> T
     ) throws -> Result<T, MutexWouldBlockError> {
         if case .failure(let error) = try self.tryLock() {
             return .failure(error)
         }
 
         let result = Result {
-            try closure(&self.wrapped)
+            try closure(self.access)
         }
 
         try self.unlock()

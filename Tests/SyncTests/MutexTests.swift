@@ -8,7 +8,11 @@ final class MutexTests: XCTestCase {
     func testInit() throws {
         let mutex = try Mutex(1234)
 
-        let value = try mutex.lock { $0 }
+        let value = try mutex.lock { access in
+            access {
+                $0
+            }
+        }
 
         XCTAssertEqual(value, 1234)
     }
@@ -41,19 +45,19 @@ final class MutexTests: XCTestCase {
         }
     }
 
-//    func testReentrantLockWithRecursive() throws {
-//        let mutex = try Mutex(1, type: .recursive)
-//        try mutex.lock { inner in
-//            let result = try mutex.tryLock { _ in }
-//
-//            switch result {
-//            case .success(_):
-//                break
-//            case .failure(_):
-//                XCTFail("Expected concurrent write-lock to not block")
-//            }
-//        }
-//    }
+    func testReentrantLockWithRecursive() throws {
+        let mutex = try Mutex(1, type: .recursive)
+        try mutex.lock { inner in
+            let result = try mutex.tryLock { _ in }
+
+            switch result {
+            case .success(_):
+                break
+            case .failure(_):
+                XCTFail("Expected concurrent write-lock to not block")
+            }
+        }
+    }
 
     func testLockBlocksLock() throws {
         let mutex = try Mutex(())
@@ -119,9 +123,11 @@ final class MutexTests: XCTestCase {
                     group.leave()
                 }
 
-                try! mutex.lock {
+                try! mutex.lock { access in
                     if i % k == 0 {
-                        $0 += 1
+                        access {
+                            $0 += 1
+                        }
                     }
                 }
             }
@@ -129,7 +135,9 @@ final class MutexTests: XCTestCase {
 
         group.wait()
 
-        let result = try mutex.lock { $0 }
+        let result = try mutex.lock { access in
+            access { $0 }
+        }
 
         XCTAssertEqual(result, j / k)
     }
@@ -139,7 +147,7 @@ final class MutexTests: XCTestCase {
         ("testLock", testLock),
         ("testTryLock", testTryLock),
         ("testReentrantLockWithNonRecursive", testReentrantLockWithNonRecursive),
-//        ("testReentrantLockWithRecursive", testReentrantLockWithRecursive),
+        ("testReentrantLockWithRecursive", testReentrantLockWithRecursive),
         ("testLockBlocksLock", testLockBlocksLock),
         ("testSmoke", testSmoke),
     ]

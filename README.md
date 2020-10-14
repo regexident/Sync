@@ -1,3 +1,3 @@
 # Sync
 
-A description of this package.
+Useful synchronization primitives in Swift.

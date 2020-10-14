@@ -118,15 +118,21 @@ public final class RWLock<Wrapped> {
             throw error
         }
 
-        defer {
-            pthread_rwlockattr_destroy(&attr)
-        }
-
         pthread_rwlockattr_setpshared(&attr, self.processShared.rawValue)
 
         status = pthread_rwlock_init(&self.rwlock, &attr)
 
-        if let error = RWLockInitError(rawValue: status) {
+        let rwlockInitError = RWLockInitError(rawValue: status)
+
+        status = pthread_rwlockattr_destroy(&attr)
+
+        let rwlockAttributeDestroyError = RWLockAttributeDestroyError(rawValue: status)
+
+        if let error = rwlockInitError {
+            throw error
+        }
+
+        if let error = rwlockAttributeDestroyError {
             throw error
         }
     }

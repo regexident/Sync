@@ -154,10 +154,6 @@ public final class Mutex<Wrapped> {
             throw error
         }
 
-        defer {
-            pthread_mutexattr_destroy(&attr)
-        }
-
         pthread_mutexattr_settype(&attr, self.type.rawValue)
         pthread_mutexattr_setprioceiling(&attr, priorityCeiling.rawValue)
         pthread_mutexattr_setprotocol(&attr, self.priorityProtocol.rawValue)
@@ -166,7 +162,17 @@ public final class Mutex<Wrapped> {
 
         status = pthread_mutex_init(&self.mutex, &attr)
 
-        if let error = MutexInitError(rawValue: status) {
+        let mutexInitError = MutexInitError(rawValue: status)
+
+        status = pthread_mutexattr_destroy(&attr)
+
+        let mutexAttributeDestroyError = MutexAttributeDestroyError(rawValue: status)
+
+        if let error = mutexInitError {
+            throw error
+        }
+
+        if let error = mutexAttributeDestroyError {
             throw error
         }
     }

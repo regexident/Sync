@@ -6,9 +6,9 @@ final class MutexTests: XCTestCase {
     let delay: TimeInterval = 0.1
     
     func testInit() throws {
-        let mutex = try Mutex(1234)
+        let mutex = try Mutex(42)
 
-        XCTAssertEqual(try mutex.unwrap(), 1234)
+        XCTAssertEqual(try mutex.unwrap(), 42)
     }
 
     func testRead() throws {
@@ -48,7 +48,7 @@ final class MutexTests: XCTestCase {
     }
 
     func testUseAfterUnwrapThrows() throws {
-        let mutex = try Mutex(42)
+        let mutex = try Mutex(())
 
         let _ = try mutex.unwrap()
 
@@ -58,30 +58,30 @@ final class MutexTests: XCTestCase {
         XCTAssertThrowsError(try mutex.tryUnwrap())
     }
 
-    func testReentrantLockWithNonRecursive() throws {
-        let mutex = try Mutex(1, type: .default)
-        try mutex.read { inner in
+    func testLockWithinLockBlocks() throws {
+        let mutex = try Mutex(())
+        try mutex.read { _ in
             let result = try mutex.tryRead { _ in }
 
             switch result {
             case .success(_):
-                XCTFail("Expected concurrent write-lock to block")
+                XCTFail("Expected lock within lock to block")
             case .failure(_):
                 break
             }
         }
     }
 
-    func testReentrantLockWithRecursive() throws {
-        let mutex = try Mutex(1, type: .recursive)
-        try mutex.read { inner in
+    func testLockWithinLockDoesNotBlockIfRecursive() throws {
+        let mutex = try Mutex((), type: .recursive)
+        try mutex.read { _ in
             let result = try mutex.tryRead { _ in }
 
             switch result {
             case .success(_):
                 break
             case .failure(_):
-                XCTFail("Expected concurrent write-lock to not block")
+                XCTFail("Expected lock within lock to not block if recursive")
             }
         }
     }
@@ -205,8 +205,8 @@ final class MutexTests: XCTestCase {
         ("testTryRead", testTryRead),
         ("testWrite", testWrite),
         ("testTryWrite", testTryWrite),
-        ("testReentrantLockWithNonRecursive", testReentrantLockWithNonRecursive),
-        ("testReentrantLockWithRecursive", testReentrantLockWithRecursive),
+        ("testLockWithinLockBlocks", testLockWithinLockBlocks),
+        ("testLockWithinLockDoesNotBlockIfRecursive", testLockWithinLockDoesNotBlockIfRecursive),
         ("testLockBlocksLock", testLockBlocksLock),
         ("testSmoke", testSmoke),
         ("testExample", testExample),

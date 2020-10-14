@@ -6,11 +6,11 @@ final class RWLockTests: XCTestCase {
     let delay: TimeInterval = 0.1
 
     func testInit() throws {
-        let rwlock = try RWLock(1234)
+        let rwlock = try RWLock(42)
 
         let value = try rwlock.read { $0 }
 
-        XCTAssertEqual(value, 1234)
+        XCTAssertEqual(value, 42)
     }
 
     func testRead() throws {

@@ -31,6 +31,9 @@ try! mutex.write { access in
 }
 ```
 
+<details>
+<summary>Real-world Example</summary>
+
 ### Real-world Example
 
 ```swift
@@ -67,6 +70,8 @@ let value = try! mutex.unwrap()
 XCTAssertEqual(value, 2 * count)
 ```
 
+</details>
+
 ## `UnfairMutex<T>`
 
 An unfair mutual exclusion primitive useful for protecting shared data
@@ -95,6 +100,9 @@ try! mutex.write { access in
     }
 }
 ```
+
+<details>
+<summary>Real-world Example</summary>
 
 ### Real-world Example
 
@@ -132,6 +140,8 @@ let value = try! unfairMutex.unwrap()
 XCTAssertEqual(value, 2 * count)
 ```
 
+</details>
+
 ## `RWLock<T>`
 
 A reader-writer lock
@@ -165,6 +175,9 @@ try! rwlock.write { access in
     }
 }
 ```
+
+<details>
+<summary>Real-world Example</summary>
 
 ### Real-world Example
 
@@ -201,3 +214,5 @@ let value = try! rwlock.unwrap()
 
 XCTAssertEqual(value, 2 * count)
 ```
+
+</details>

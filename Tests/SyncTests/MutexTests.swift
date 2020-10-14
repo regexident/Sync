@@ -142,6 +142,44 @@ final class MutexTests: XCTestCase {
         XCTAssertEqual(result, j / k)
     }
 
+    func testExample() throws {
+        let mutex = try Mutex(0)
+
+        let count: Int = 1000
+
+        let queue = DispatchQueue(
+            label: #function,
+            attributes: .concurrent
+        )
+
+        let group = DispatchGroup()
+
+        for _ in 0..<count {
+            group.enter()
+
+            queue.async {
+                defer {
+                    group.leave()
+                }
+                try! mutex.lock { access in
+                    access {
+                        $0 += 2
+                    }
+                }
+            }
+        }
+
+        group.wait()
+
+        let value = try! mutex.lock { access in
+            access {
+                $0
+            }
+        }
+
+        assert(value == 2 * count)
+    }
+
     static var allTests = [
         ("testInit", testInit),
         ("testLock", testLock),
@@ -150,5 +188,6 @@ final class MutexTests: XCTestCase {
         ("testReentrantLockWithRecursive", testReentrantLockWithRecursive),
         ("testLockBlocksLock", testLockBlocksLock),
         ("testSmoke", testSmoke),
+        ("testExample", testExample),
     ]
 }

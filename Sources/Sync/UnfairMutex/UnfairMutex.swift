@@ -1,6 +1,6 @@
 import Foundation
 
-/// A fair mutual exclusion primitive useful for protecting shared data.
+/// An unfair mutual exclusion primitive useful for protecting shared data.
 ///
 /// This mutex will block threads waiting for the lock to become available.
 /// The mutex can also be statically initialized or created via a new
@@ -8,7 +8,8 @@ import Foundation
 /// that it is protecting. The data can only be accessed through the `access`
 /// handle passed to the callback of `lock` and `tryLock`, which guarantees
 /// that the data is only ever accessed when the mutex is locked.
-public final class Mutex<Wrapped>: Sync {
+@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
+public final class UnfairMutex<Wrapped>: Sync {
     public typealias WouldBlockError = MutexWouldBlockError
 
     private enum State {
@@ -16,67 +17,21 @@ public final class Mutex<Wrapped>: Sync {
         case consumed
     }
 
-    private var mutex: pthread_mutex_t
+    private var unfairLock: os_unfair_lock_s
     private var wrapped: Wrapped
     private var state: State
 
     private var access: ScopedAccess<Wrapped>
 
-    public let type: MutexType
-    public let priorityProtocol: MutexPriorityProtocol
-    public let processShared: MutexProcessShared
-    public let policy: MutexPolicy
-
-    /// The priority ceiling of the mutex.
-    public var priorityCeiling: MutexPriorityCeiling {
-        get {
-            var rawValue: Int32 = 0
-            let status = pthread_mutex_getprioceiling(
-                &self.mutex,
-                &rawValue
-            )
-            assert(status == 0)
-            return .init(rawValue)
-        }
-        set {
-            let rawValue: Int32 = newValue.rawValue
-            var oldRawValue: Int32 = 0
-            let status = pthread_mutex_setprioceiling(
-                &self.mutex,
-                rawValue,
-                &oldRawValue
-            )
-            assert(status == 0)
-        }
-    }
-
-    /// Creates a mutex corresponding to the provided attributes.
+    /// Creates an unfair mutex corresponding to the provided attributes.
     public init(
-        _ wrapped: Wrapped,
-        type: MutexType = .default,
-        priorityCeiling: MutexPriorityCeiling = .default,
-        priorityProtocol: MutexPriorityProtocol = .default,
-        processShared: MutexProcessShared = .default,
-        policy: MutexPolicy = .default
+        _ wrapped: Wrapped
     ) throws {
-        self.mutex = .init()
+        self.unfairLock = .init()
         self.wrapped = wrapped
         self.state = .normal
 
         self.access = .init(&self.wrapped)
-
-        self.type = type
-        self.priorityProtocol = priorityProtocol
-        self.processShared = processShared
-        self.policy = policy
-
-        try self.initialize(
-            priorityCeiling: priorityCeiling
-        )
-    }
-
-    deinit {
-        try! self.destroy()
     }
 
     /// Performs a blocking exclusive read.
@@ -97,11 +52,11 @@ public final class Mutex<Wrapped>: Sync {
     public func read<T>(
         _ closure: (Wrapped) throws -> T
     ) throws -> T {
-        try self.lock()
+        self.lock()
 
         let result = try self.readAssumingLocked(closure)
 
-        try self.unlock()
+        self.unlock()
 
         return try result.get()
     }
@@ -130,7 +85,7 @@ public final class Mutex<Wrapped>: Sync {
 
         let result = try self.readAssumingLocked(closure)
 
-        try self.unlock()
+        self.unlock()
 
         return .success(try result.get())
     }
@@ -153,11 +108,11 @@ public final class Mutex<Wrapped>: Sync {
     public func write<T>(
         _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) throws -> T {
-        try self.lock()
+        self.lock()
 
         let result = try self.writeAssumingLocked(closure)
 
-        try self.unlock()
+        self.unlock()
 
         return try result.get()
     }
@@ -186,7 +141,7 @@ public final class Mutex<Wrapped>: Sync {
 
         let result = try self.writeAssumingLocked(closure)
 
-        try self.unlock()
+        self.unlock()
 
         return .success(try result.get())
     }
@@ -229,81 +184,27 @@ public final class Mutex<Wrapped>: Sync {
         }
     }
 
-    private func initialize(
-        priorityCeiling: MutexPriorityCeiling
-    ) throws {
-        var attr = pthread_mutexattr_t()
-
-        var status: Int32
-
-        status = pthread_mutexattr_init(&attr)
-
-        if let error = MutexAttributeInitError(rawValue: status) {
-            throw error
-        }
-
-        pthread_mutexattr_settype(&attr, self.type.rawValue)
-        pthread_mutexattr_setprioceiling(&attr, priorityCeiling.rawValue)
-        pthread_mutexattr_setprotocol(&attr, self.priorityProtocol.rawValue)
-        pthread_mutexattr_setpshared(&attr, self.processShared.rawValue)
-        pthread_mutexattr_setpolicy_np(&attr, self.policy.rawValue)
-
-        status = pthread_mutex_init(&self.mutex, &attr)
-
-        let mutexInitError = MutexInitError(rawValue: status)
-
-        status = pthread_mutexattr_destroy(&attr)
-
-        let mutexAttributeDestroyError = MutexAttributeDestroyError(rawValue: status)
-
-        if let error = mutexInitError {
-            throw error
-        }
-
-        if let error = mutexAttributeDestroyError {
-            throw error
-        }
-    }
-
-    private func destroy() throws {
-        let status = pthread_mutex_destroy(&self.mutex)
-
-        if let error = MutexDestroyError(rawValue: status) {
-            throw error
-        }
-    }
-
     private func tryLock() throws -> Result<(), MutexWouldBlockError> {
-        let status = pthread_mutex_trylock(&self.mutex)
-
-        if let error = MutexTryLockError(rawValue: status) {
-            switch error {
-            case .busy: return .failure(.init())
-            case _: throw error
-            }
+        guard os_unfair_lock_trylock(&self.unfairLock) else {
+            return .failure(MutexWouldBlockError())
         }
 
         return .success(())
     }
 
-    private func lock() throws {
-        let status = pthread_mutex_lock(&self.mutex)
-
-        if let error = MutexLockError(rawValue: status) {
-            throw error
-        }
+    private func lock() {
+        os_unfair_lock_lock(&self.unfairLock)
     }
 
-    private func unlock() throws {
-        let status = pthread_mutex_unlock(&self.mutex)
-        if let error = MutexUnlockError(rawValue: status) {
-            throw error
-        }
+    private func unlock() {
+        os_unfair_lock_unlock(&self.unfairLock)
     }
 
     private func readAssumingLocked<T>(
         _ closure: (Wrapped) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
+        os_unfair_lock_assert_owner(&self.unfairLock)
+
         switch self.state {
         case .normal:
             return Result { try closure(self.wrapped) }
@@ -315,6 +216,8 @@ public final class Mutex<Wrapped>: Sync {
     private func writeAssumingLocked<T>(
         _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
+        os_unfair_lock_assert_owner(&self.unfairLock)
+
         switch self.state {
         case .normal:
             return Result { try closure(self.access) }

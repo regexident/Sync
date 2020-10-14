@@ -66,3 +66,67 @@ XCTAssertEqual(value, 2 * count)
 ```
 
 ## `RWLock`
+
+A reader-writer lock
+
+> This type of lock allows a number of readers or at most one writer
+> at any point in time. The write portion of this lock typically allows
+> modification of the underlying data (exclusive access) and the read
+> portion of this lock typically allows for read-only access (shared access).
+>
+> In comparison, a `Mutex` does not distinguish between readers or writers
+> that acquire the lock, therefore blocking any threads waiting for the
+> lock to become available. An `RWLock` will allow any number of readers
+> to acquire the lock as long as a writer is not holding the lock.
+
+### Minimal Example
+
+```swift
+let rwlock = try RWLock(0)
+
+try! rwlock.read { value in 
+    print(value)
+}
+
+try! rwlock.write { access in
+    access { value in
+        value += 42
+    }
+}
+```
+
+### Real-world Example
+
+```swift
+let rwlock = try RWLock(0)
+
+let count: Int = 1000
+
+let queue = DispatchQueue(
+    label: #function,
+    attributes: .concurrent
+)
+
+let group = DispatchGroup()
+
+for _ in 0..<count {
+    group.enter()
+
+    queue.async {
+        defer {
+            group.leave()
+        }
+        try! rwlock.write { access in
+            access {
+                $0 += 2
+            }
+        }
+    }
+}
+
+group.wait()
+
+let value = try! rwlock.unwrap()
+
+XCTAssertEqual(value, 2 * count)
+```

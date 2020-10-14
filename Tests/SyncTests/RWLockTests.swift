@@ -308,6 +308,40 @@ final class RWLockTests: XCTestCase {
         XCTAssertEqual(result, j / k)
     }
 
+    func testExample() throws {
+        let rwlock = try RWLock(0)
+
+        let count: Int = 1000
+
+        let queue = DispatchQueue(
+            label: #function,
+            attributes: .concurrent
+        )
+
+        let group = DispatchGroup()
+
+        for _ in 0..<count {
+            group.enter()
+
+            queue.async {
+                defer {
+                    group.leave()
+                }
+                try! rwlock.write { access in
+                    access {
+                        $0 += 2
+                    }
+                }
+            }
+        }
+
+        group.wait()
+
+        let value = try! rwlock.unwrap()
+
+        XCTAssertEqual(value, 2 * count)
+    }
+
     static var allTests = [
         ("testInit", testInit),
         ("testReadDoesNotBlockRead", testReadDoesNotBlockRead),
@@ -319,5 +353,6 @@ final class RWLockTests: XCTestCase {
         ("testWriteWithinReadBlocks", testWriteWithinReadBlocks),
         ("testWriteWithinWriteBlocks", testWriteWithinWriteBlocks),
         ("testSmoke", testSmoke),
+        ("testExample", testExample),
     ]
 }

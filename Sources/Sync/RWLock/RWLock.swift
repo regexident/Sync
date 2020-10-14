@@ -11,6 +11,8 @@ import Foundation
 /// that acquire the lock, therefore blocking any threads waiting for the
 /// lock to become available. An `RWLock` will allow any number of readers
 /// to acquire the lock as long as a writer is not holding the lock.
+///
+/// **Important**: `RWLock` does not support priority inversion avoidance.
 public final class RWLock<Wrapped>: Sync {
     public typealias WouldBlockError = RWLockWouldBlockError
     

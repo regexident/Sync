@@ -3,8 +3,14 @@ import Foundation
 public final class RWLock<Wrapped> {
     public typealias Access = Sync.ScopedAccess<Wrapped>
 
+    private enum State {
+        case normal
+        case consumed
+    }
+
     private var rwlock: pthread_rwlock_t
     private var wrapped: Wrapped
+    private var state: State
 
     fileprivate let access: Access
 
@@ -16,6 +22,7 @@ public final class RWLock<Wrapped> {
     ) throws {
         self.rwlock = .init()
         self.wrapped = wrapped
+        self.state = .normal
 
         self.access = .init(&self.wrapped)
 
@@ -82,6 +89,22 @@ public final class RWLock<Wrapped> {
         try self.unlock()
 
         return .success(try result.get())
+    }
+
+    public func unwrap() throws -> Wrapped {
+        try self.read { wrapped in
+            self.state = .consumed
+
+            return wrapped
+        }
+    }
+
+    public func tryUnwrap() throws -> Result<Wrapped, RWLockWouldBlockError> {
+        try self.tryRead { wrapped in
+            self.state = .consumed
+
+            return wrapped
+        }
     }
 
     private func initialize() throws {
@@ -169,12 +192,22 @@ public final class RWLock<Wrapped> {
     private func readAssumingLocked<T>(
         _ closure: (Wrapped) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        Result { try closure(self.wrapped) }
+        switch self.state {
+        case .normal:
+            return Result { try closure(self.wrapped) }
+        case .consumed:
+            return .failure(RWLockInvalidatedError())
+        }
     }
 
     private func writeAssumingLocked<T>(
         _ closure: (Access) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        Result { try closure(self.access) }
+        switch self.state {
+        case .normal:
+            return Result { try closure(self.access) }
+        case .consumed:
+            return .failure(RWLockInvalidatedError())
+        }
     }
 }

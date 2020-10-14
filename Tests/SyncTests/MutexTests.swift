@@ -8,10 +8,7 @@ final class MutexTests: XCTestCase {
     func testInit() throws {
         let mutex = try Mutex(1234)
 
-        let value = try mutex.read { value in
-            value
-        }
-        XCTAssertEqual(value, 1234)
+        XCTAssertEqual(try mutex.unwrap(), 1234)
     }
 
     func testRead() throws {
@@ -42,6 +39,23 @@ final class MutexTests: XCTestCase {
         try mutex.tryRead { _ in }
     }
 
+    func testUnwrap() throws {
+        let mutex = try Mutex(42)
+
+        let value = try mutex.unwrap()
+
+        XCTAssertEqual(value, 42)
+    }
+
+    func testUseAfterUnwrapThrows() throws {
+        let mutex = try Mutex(42)
+
+        let _ = try mutex.unwrap()
+
+        XCTAssertThrowsError(try mutex.read { _ in })
+        XCTAssertThrowsError(try mutex.tryRead { _ in })
+        XCTAssertThrowsError(try mutex.unwrap())
+        XCTAssertThrowsError(try mutex.tryUnwrap())
     }
 
     func testReentrantLockWithNonRecursive() throws {
@@ -148,11 +162,7 @@ final class MutexTests: XCTestCase {
 
         group.wait()
 
-        let result = try mutex.lock { access in
-            access { $0 }
-        }
-
-        XCTAssertEqual(result, j / k)
+        XCTAssertEqual(try mutex.unwrap(), j / k)
     }
 
     func testExample() throws {
@@ -184,11 +194,7 @@ final class MutexTests: XCTestCase {
 
         group.wait()
 
-        let value = try! mutex.lock { access in
-            access {
-                $0
-            }
-        }
+        let value = try! mutex.unwrap()
 
         XCTAssertEqual(value, 2 * count)
     }

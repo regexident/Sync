@@ -3,8 +3,14 @@ import Foundation
 public final class Mutex<Wrapped> {
     public typealias Access = ScopedAccess<Wrapped>
 
+    private enum State {
+        case normal
+        case consumed
+    }
+
     private var mutex: pthread_mutex_t
     private var wrapped: Wrapped
+    private var state: State
 
     private var access: Access
 
@@ -45,6 +51,7 @@ public final class Mutex<Wrapped> {
     ) throws {
         self.mutex = .init()
         self.wrapped = wrapped
+        self.state = .normal
 
         self.access = .init(&self.wrapped)
 
@@ -118,6 +125,22 @@ public final class Mutex<Wrapped> {
         return .success(try result.get())
     }
 
+    public func unwrap() throws -> Wrapped {
+        try self.read { wrapped in
+            self.state = .consumed
+
+            return wrapped
+        }
+    }
+
+    public func tryUnwrap() throws -> Result<Wrapped, MutexWouldBlockError> {
+        try self.tryRead { wrapped in
+            self.state = .consumed
+
+            return wrapped
+        }
+    }
+
     private func initialize(
         priorityCeiling: MutexPriorityCeiling
     ) throws {
@@ -187,12 +210,22 @@ public final class Mutex<Wrapped> {
     private func readAssumingLocked<T>(
         _ closure: (Wrapped) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        Result { try closure(self.wrapped) }
+        switch self.state {
+        case .normal:
+            return Result { try closure(self.wrapped) }
+        case .consumed:
+            return .failure(MutexInvalidatedError())
+        }
     }
 
     private func writeAssumingLocked<T>(
         _ closure: (Access) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        Result { try closure(self.access) }
+        switch self.state {
+        case .normal:
+            return Result { try closure(self.access) }
+        case .consumed:
+            return .failure(MutexInvalidatedError())
+        }
     }
 }

@@ -13,6 +13,53 @@ final class RWLockTests: XCTestCase {
         XCTAssertEqual(value, 1234)
     }
 
+    func testRead() throws {
+        let rwlock = try RWLock(())
+
+        try rwlock.read { _ in }
+        try rwlock.read { _ in }
+    }
+
+    func testTryRead() throws {
+        let rwlock = try RWLock(())
+
+        try rwlock.tryRead { _ in }
+        try rwlock.tryRead { _ in }
+    }
+
+    func testWrite() throws {
+        let rwlock = try RWLock(())
+
+        try rwlock.read { _ in }
+        try rwlock.read { _ in }
+    }
+
+    func testTryWrite() throws {
+        let rwlock = try RWLock(())
+
+        try rwlock.tryRead { _ in }
+        try rwlock.tryRead { _ in }
+    }
+
+    func testUnwrap() throws {
+        let rwlock = try RWLock(42)
+
+        let value = try rwlock.unwrap()
+
+        XCTAssertEqual(value, 42)
+    }
+
+    func testUseAfterUnwrapThrows() throws {
+        let rwlock = try RWLock(42)
+
+        let _ = try rwlock.unwrap()
+
+        XCTAssertThrowsError(try rwlock.read { _ in })
+        XCTAssertThrowsError(try rwlock.tryRead { _ in })
+        XCTAssertThrowsError(try rwlock.unwrap())
+        XCTAssertThrowsError(try rwlock.tryUnwrap())
+    }
+
     func testReadDoesNotBlockRead() throws {
         let rwlock = try RWLock(())
 

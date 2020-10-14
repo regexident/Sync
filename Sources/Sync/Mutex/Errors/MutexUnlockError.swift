@@ -1,7 +1,9 @@
 import Foundation
 
 public enum MutexUnlockError: RawRepresentable, Swift.Error {
+    /// `EPERM`
     case permissions
+    /// `EINVAL`
     case invalid
     case unknown(Int32)
 

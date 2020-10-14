@@ -1,5 +1,13 @@
 import Foundation
 
+/// A mutual exclusion primitive useful for protecting shared data.
+///
+/// This mutex will block threads waiting for the lock to become available.
+/// The mutex can also be statically initialized or created via a new
+/// constructor. Each mutex has a type parameter which represents the data
+/// that it is protecting. The data can only be accessed through the `access`
+/// handle passed to the callback of `lock` and `tryLock`, which guarantees
+/// that the data is only ever accessed when the mutex is locked.
 public final class Mutex<Wrapped> {
     public typealias Access = ScopedAccess<Wrapped>
 
@@ -19,6 +27,7 @@ public final class Mutex<Wrapped> {
     public let processShared: MutexProcessShared
     public let policy: MutexPolicy
 
+    /// The priority ceiling of the mutex.
     public var priorityCeiling: MutexPriorityCeiling {
         get {
             var rawValue: Int32 = 0
@@ -41,6 +50,7 @@ public final class Mutex<Wrapped> {
         }
     }
 
+    /// Creates a mutex corresponding to the provided attributes.
     public init(
         _ wrapped: Wrapped,
         type: MutexType = .default,
@@ -69,6 +79,20 @@ public final class Mutex<Wrapped> {
         try! self.destroy()
     }
 
+    /// Performs a blocking exclusive read.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that points to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, `MutexUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`.
     @discardableResult
     public func read<T>(
         _ closure: (Wrapped) throws -> T
@@ -82,6 +106,20 @@ public final class Mutex<Wrapped> {
         return try result.get()
     }
 
+    /// Performs a non-blocking exclusive read.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that points to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, `MutexUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`, or `MutexWouldBlockError`.
     @discardableResult
     public func tryRead<T>(
         _ closure: (Wrapped) throws -> T
@@ -97,6 +135,20 @@ public final class Mutex<Wrapped> {
         return .success(try result.get())
     }
 
+    /// Performs a blocking exclusive write.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that provides access to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, `MutexUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`.
     @discardableResult
     public func write<T>(
         _ closure: (Access) throws -> T
@@ -110,6 +162,20 @@ public final class Mutex<Wrapped> {
         return try result.get()
     }
 
+    /// Performs a non-blocking exclusive write.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that provides access to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, `MutexUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`, or `MutexWouldBlockError`.
     @discardableResult
     public func tryWrite<T>(
         _ closure: (Access) throws -> T
@@ -125,6 +191,17 @@ public final class Mutex<Wrapped> {
         return .success(try result.get())
     }
 
+    /// Performs a blocking exclusive read and returns the wrapped value,
+    /// while invalidating (i.e. consuming) the mutex for further use.
+    ///
+    /// - Important:
+    ///
+    ///   If the call succeeds the mutex MUST NOT be used any further.
+    ///
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, or `MutexUnlockError`
+    /// - Returns:
+    ///   The wrapped value.
     public func unwrap() throws -> Wrapped {
         try self.read { wrapped in
             self.state = .consumed
@@ -133,6 +210,17 @@ public final class Mutex<Wrapped> {
         }
     }
 
+    /// Performs a blocking exclusive read and returns the wrapped value,
+    /// while invalidating (i.e. consuming) the mutex for further use.
+    ///
+    /// - Important:
+    ///
+    ///   If the call succeeds the mutex MUST NOT be used any further.
+    ///
+    /// - Throws:
+    ///   `MutexLockError`, `MutexInvalidatedError`, or `MutexUnlockError`
+    /// - Returns:
+    ///   The wrapped value, or `MutexWouldBlockError`.
     public func tryUnwrap() throws -> Result<Wrapped, MutexWouldBlockError> {
         try self.tryRead { wrapped in
             self.state = .consumed

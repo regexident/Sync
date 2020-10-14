@@ -1,11 +1,13 @@
 import Foundation
 
+/// Process sharing mode.
 public enum ProcessShared: Int32, RawRepresentable {
     public typealias RawValue = Int32
 
     case shared = 1
     case `private` = 2
 
+    /// The system's default process sharing mode.
     public static let `default`: Self = .private
 
     public var rawValue: RawValue {

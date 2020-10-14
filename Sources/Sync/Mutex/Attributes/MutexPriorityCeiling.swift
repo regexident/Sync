@@ -1,8 +1,10 @@
 import Foundation
 
+/// Priority ceiling of a mutex.
 public struct MutexPriorityCeiling: RawRepresentable {
     public typealias RawValue = Int32
 
+    /// The system's default mutex priority ceiling.
     public static let `default`: Self = Self(rawValue: 0)!
 
     public let rawValue: RawValue

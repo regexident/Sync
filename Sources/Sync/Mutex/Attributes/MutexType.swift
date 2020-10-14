@@ -1,8 +1,11 @@
 import Foundation
 
+/// The type of a mutex.
 public enum MutexType: Int32, RawRepresentable {
     public typealias RawValue = Int32
 
+    /// `PTHREAD_MUTEX_NORMAL`
+    ///
     /// `.normal` mutexes do not check for usage errors. `.normal`
     /// mutexes will deadlock if reentered, and result in undefined
     /// behavior if a locked mutex is unlocked by another thread.
@@ -10,6 +13,8 @@ public enum MutexType: Int32, RawRepresentable {
     /// will result in undefined behavior.
     case normal = 0
 
+    /// `PTHREAD_MUTEX_ERRORCHECK`
+    ///
     /// `.errorCheck` mutexes do check for usage errors.
     /// If an attempt is made to relock a `.errorCheck` mutex
     /// without first dropping the lock, an error will be returned.
@@ -19,6 +24,8 @@ public enum MutexType: Int32, RawRepresentable {
     /// that is unlocked, an error will be returned.
     case errorCheck = 1
 
+    /// `PTHREAD_MUTEX_RECURSIVE`
+    ///
     /// `.recursive` mutexes allow recursive locking.
     /// An attempt to relock a `.recursive` mutex that is
     /// already locked by the same thread succeeds.
@@ -30,10 +37,7 @@ public enum MutexType: Int32, RawRepresentable {
     /// thread that is unlocked, an error will be returned.
     case recursive = 2
 
-    /// `.default` mutexes result in undefined behavior if reentered.
-    /// Unlocking a `.default` mutex locked by another thread will
-    /// result in undefined behavior. Attempts to unlock an already
-    /// unlocked `.default` mutex will result in undefined behavior.
+    /// The system's default mutex type.
     public static let `default`: Self = .normal
 
     public var rawValue: RawValue {

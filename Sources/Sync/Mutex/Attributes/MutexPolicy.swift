@@ -1,11 +1,15 @@
 import Foundation
 
+/// Policy of a mutex.
 public enum MutexPolicy: Int32, RawRepresentable {
     public typealias RawValue = Int32
 
+    /// `PTHREAD_MUTEX_POLICY_FAIRSHARE_NP`
     case fairShare = 1
+    /// `PTHREAD_MUTEX_POLICY_FIRSTFIT_NP`
     case firstFit = 3
 
+    /// The system's default mutex policy.
     public static let `default`: Self = .firstFit
 
     public var rawValue: RawValue {

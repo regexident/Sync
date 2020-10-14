@@ -1,14 +1,13 @@
 import Foundation
 
+/// Errors returned by `pthread_mutexattr_init`.
 public enum MutexAttributeInitError: RawRepresentable, Swift.Error {
+    /// `ENOMEM`
     case noMemory
-    case invalid
     case unknown(Int32)
 
     public var rawValue: Int32 {
         switch self {
-        case .invalid:
-            return EINVAL
         case .noMemory:
             return ENOMEM
         case .unknown(let errorCode):
@@ -20,8 +19,6 @@ public enum MutexAttributeInitError: RawRepresentable, Swift.Error {
         switch self {
         case .noMemory:
             return "Out of memory."
-        case .invalid:
-            return "Invalid value for attr."
         case .unknown(let errorCode):
             return "Enexpected error \(errorCode)"
         }
@@ -31,8 +28,6 @@ public enum MutexAttributeInitError: RawRepresentable, Swift.Error {
         switch rawValue {
         case 0:
             return nil
-        case EINVAL:
-            self = .invalid
         case ENOMEM:
             self = .noMemory
         case _:

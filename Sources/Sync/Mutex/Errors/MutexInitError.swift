@@ -1,8 +1,12 @@
 import Foundation
 
+/// Errors returned by `pthread_mutex_init`.
 public enum MutexInitError: RawRepresentable, Swift.Error {
+    /// `EAGAIN`
     case again
+    /// `EINVAL`
     case invalid
+    /// `ENOMEM`
     case noMemory
     case unknown(Int32)
 

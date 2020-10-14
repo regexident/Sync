@@ -4,10 +4,14 @@ import Foundation
 public enum MutexPriorityProtocol: Int32, RawRepresentable {
     public typealias RawValue = Int32
 
+    /// `PTHREAD_PRIO_NONE`
     case none = 0
+    /// `PTHREAD_PRIO_INHERIT`
     case inherit = 1
+    /// `PTHREAD_PRIO_PROTECT`
     case protect = 2
 
+    /// The system's default mutex priority protocol.
     public static let `default`: Self = .none
 
     public var rawValue: RawValue {

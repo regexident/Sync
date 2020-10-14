@@ -1,6 +1,8 @@
 import Foundation
 
+/// Errors returned by `pthread_mutexattr_destroy`.
 public enum MutexAttributeDestroyError: RawRepresentable, Swift.Error {
+    /// `EINVAL`
     case invalid
     case unknown(Int32)
 

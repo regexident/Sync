@@ -1,5 +1,6 @@
 import Foundation
 
+/// Errors returned by `pthread_rwlockattr_destroy`.
 public enum RWLockAttributeDestroyError: RawRepresentable, Swift.Error {
     case invalid
     case unknown(Int32)

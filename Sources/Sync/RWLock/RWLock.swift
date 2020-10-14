@@ -1,5 +1,16 @@
 import Foundation
 
+/// A reader-writer lock
+///
+/// This type of lock allows a number of readers or at most one writer
+/// at any point in time. The write portion of this lock typically allows
+/// modification of the underlying data (exclusive access) and the read
+/// portion of this lock typically allows for read-only access (shared access).
+///
+/// In comparison, a `RWLock` does not distinguish between readers or writers
+/// that acquire the lock, therefore blocking any threads waiting for the
+/// lock to become available. An `RWLock` will allow any number of readers
+/// to acquire the lock as long as a writer is not holding the lock.
 public final class RWLock<Wrapped> {
     public typealias Access = Sync.ScopedAccess<Wrapped>
 
@@ -16,6 +27,7 @@ public final class RWLock<Wrapped> {
 
     public let processShared: RWLockProcessShared
 
+    /// Creates a read-write lock corresponding to the provided attributes.
     public init(
         _ wrapped: Wrapped,
         processShared: RWLockProcessShared = .default
@@ -35,6 +47,20 @@ public final class RWLock<Wrapped> {
         try! self.destroy()
     }
 
+    /// Performs a blocking non-exclusive read.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that points to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, `RWLockUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`.
     @discardableResult
     public func read<T>(
         _ closure: (Wrapped) throws -> T
@@ -48,6 +74,20 @@ public final class RWLock<Wrapped> {
         return try result.get()
     }
 
+    /// Performs a non-blocking non-exclusive read.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that points to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, `RWLockUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`, or `RWLockWouldBlockError`.
     @discardableResult
     public func tryRead<T>(
         _ closure: (Wrapped) throws -> T
@@ -63,6 +103,20 @@ public final class RWLock<Wrapped> {
         return .success(try result.get())
     }
 
+    /// Performs a blocking exclusive write.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that provides access to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, `RWLockUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`.
     @discardableResult
     public func write<T>(
         _ closure: (Access) throws -> T
@@ -76,6 +130,20 @@ public final class RWLock<Wrapped> {
         return try result.get()
     }
 
+    /// Performs a non-blocking exclusive write.
+    ///
+    /// - Important:
+    ///
+    ///   The wrapped value MUST NOT escape the closure.
+    ///
+    /// - Parameter closure:
+    ///   A closure with an argument that provides access to the mutex' wrapped value.
+    ///   The argument is valid only for the duration of the closure’s execution.
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, `RWLockUnlockError`,
+    ///   or the error thrown by `closure`
+    /// - Returns:
+    ///   The value returned by `closure`, or `RWLockWouldBlockError`.
     @discardableResult
     public func tryWrite<T>(
         _ closure: (Access) throws -> T
@@ -91,6 +159,17 @@ public final class RWLock<Wrapped> {
         return .success(try result.get())
     }
 
+    /// Performs a blocking non-exclusive read and returns the wrapped value,
+    /// while invalidating (i.e. consuming) the mutex for further use.
+    ///
+    /// - Important:
+    ///
+    ///   If the call succeeds the mutex MUST NOT be used any further.
+    ///
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, or `RWLockUnlockError`
+    /// - Returns:
+    ///   The wrapped value.
     public func unwrap() throws -> Wrapped {
         try self.read { wrapped in
             self.state = .consumed
@@ -99,6 +178,17 @@ public final class RWLock<Wrapped> {
         }
     }
 
+    /// Performs a blocking exclusive read and returns the wrapped value,
+    /// while invalidating (i.e. consuming) the mutex for further use.
+    ///
+    /// - Important:
+    ///
+    ///   If the call succeeds the mutex MUST NOT be used any further.
+    ///
+    /// - Throws:
+    ///   `RWLockLockError`, `RWLockInvalidatedError`, or `RWLockUnlockError`
+    /// - Returns:
+    ///   The wrapped value, or `RWLockWouldBlockError`.
     public func tryUnwrap() throws -> Result<Wrapped, RWLockWouldBlockError> {
         try self.tryRead { wrapped in
             self.state = .consumed

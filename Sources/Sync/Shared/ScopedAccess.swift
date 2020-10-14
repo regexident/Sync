@@ -1,5 +1,6 @@
 import Foundation
 
+/// Scoped read/write access of a wrapped value.
 public final class ScopedAccess<Wrapped> {
     private var pointer: UnsafeMutablePointer<Wrapped>
 

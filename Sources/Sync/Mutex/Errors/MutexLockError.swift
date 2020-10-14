@@ -1,7 +1,9 @@
 import Foundation
 
 public enum MutexLockError: RawRepresentable, Swift.Error {
+    /// `EDEADLK`
     case deadlock
+    /// `EINVAL`
     case invalid
     case unknown(Int32)
 

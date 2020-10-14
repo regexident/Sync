@@ -1,7 +1,10 @@
 import Foundation
 
+/// Errors returned by `pthread_mutex_destroy`.
 public enum MutexDestroyError: RawRepresentable, Swift.Error {
+    /// `EBUSY`
     case busy
+    /// `EINVAL`
     case invalid
     case unknown(Int32)
 

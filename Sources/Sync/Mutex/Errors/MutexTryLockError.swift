@@ -1,7 +1,9 @@
 import Foundation
 
 public enum MutexTryLockError: RawRepresentable, Swift.Error {
+    /// `EBUSY`
     case busy
+    /// `EINVAL`
     case invalid
     case unknown(Int32)
 

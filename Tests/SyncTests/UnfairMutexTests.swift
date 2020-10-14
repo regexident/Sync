@@ -2,6 +2,7 @@ import XCTest
 
 @testable import Sync
 
+@available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
 final class UnfairMutexTests: XCTestCase {
     let delay: TimeInterval = 0.1
     

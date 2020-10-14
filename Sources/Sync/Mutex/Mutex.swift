@@ -9,8 +9,6 @@ import Foundation
 /// handle passed to the callback of `lock` and `tryLock`, which guarantees
 /// that the data is only ever accessed when the mutex is locked.
 public final class Mutex<Wrapped> {
-    public typealias Access = ScopedAccess<Wrapped>
-
     private enum State {
         case normal
         case consumed
@@ -20,7 +18,7 @@ public final class Mutex<Wrapped> {
     private var wrapped: Wrapped
     private var state: State
 
-    private var access: Access
+    private var access: ScopedAccess<Wrapped>
 
     public let type: MutexType
     public let priorityProtocol: MutexPriorityProtocol
@@ -151,7 +149,7 @@ public final class Mutex<Wrapped> {
     ///   The value returned by `closure`.
     @discardableResult
     public func write<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) throws -> T {
         try self.lock()
 
@@ -178,7 +176,7 @@ public final class Mutex<Wrapped> {
     ///   The value returned by `closure`, or `MutexWouldBlockError`.
     @discardableResult
     public func tryWrite<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) throws -> Result<T, MutexWouldBlockError> {
         if case .failure(let error) = try self.tryLock() {
             return .failure(error)
@@ -313,7 +311,7 @@ public final class Mutex<Wrapped> {
     }
 
     private func writeAssumingLocked<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
         switch self.state {
         case .normal:

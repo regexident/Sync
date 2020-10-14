@@ -12,8 +12,6 @@ import Foundation
 /// lock to become available. An `RWLock` will allow any number of readers
 /// to acquire the lock as long as a writer is not holding the lock.
 public final class RWLock<Wrapped> {
-    public typealias Access = Sync.ScopedAccess<Wrapped>
-
     private enum State {
         case normal
         case consumed
@@ -23,7 +21,7 @@ public final class RWLock<Wrapped> {
     private var wrapped: Wrapped
     private var state: State
 
-    fileprivate let access: Access
+    fileprivate let access: ScopedAccess<Wrapped>
 
     public let processShared: RWLockProcessShared
 
@@ -119,7 +117,7 @@ public final class RWLock<Wrapped> {
     ///   The value returned by `closure`.
     @discardableResult
     public func write<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) throws -> T {
         try self.writeLock()
 
@@ -146,7 +144,7 @@ public final class RWLock<Wrapped> {
     ///   The value returned by `closure`, or `RWLockWouldBlockError`.
     @discardableResult
     public func tryWrite<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) throws -> Result<T, RWLockWouldBlockError> {
         if case .failure(let error) = try self.tryWriteLock() {
             return .failure(error)
@@ -297,7 +295,7 @@ public final class RWLock<Wrapped> {
     }
 
     private func writeAssumingLocked<T>(
-        _ closure: (Access) throws -> T
+        _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
         switch self.state {
         case .normal:

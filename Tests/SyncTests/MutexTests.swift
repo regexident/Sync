@@ -8,33 +8,46 @@ final class MutexTests: XCTestCase {
     func testInit() throws {
         let mutex = try Mutex(1234)
 
-        let value = try mutex.lock { access in
-            access {
-                $0
-            }
+        let value = try mutex.read { value in
+            value
         }
-
         XCTAssertEqual(value, 1234)
     }
 
-    func testLock() throws {
+    func testRead() throws {
         let mutex = try Mutex(())
 
-        try mutex.lock { _ in }
-        try mutex.lock { _ in }
+        try mutex.read { _ in }
+        try mutex.read { _ in }
     }
 
-    func testTryLock() throws {
+    func testTryRead() throws {
         let mutex = try Mutex(())
 
-        try mutex.tryLock { _ in }
-        try mutex.tryLock { _ in }
+        try mutex.tryRead { _ in }
+        try mutex.tryRead { _ in }
+    }
+
+    func testWrite() throws {
+        let mutex = try Mutex(())
+
+        try mutex.read { _ in }
+        try mutex.read { _ in }
+    }
+
+    func testTryWrite() throws {
+        let mutex = try Mutex(())
+
+        try mutex.tryRead { _ in }
+        try mutex.tryRead { _ in }
+    }
+
     }
 
     func testReentrantLockWithNonRecursive() throws {
         let mutex = try Mutex(1, type: .default)
-        try mutex.lock { inner in
-            let result = try mutex.tryLock { _ in }
+        try mutex.read { inner in
+            let result = try mutex.tryRead { _ in }
 
             switch result {
             case .success(_):
@@ -47,8 +60,8 @@ final class MutexTests: XCTestCase {
 
     func testReentrantLockWithRecursive() throws {
         let mutex = try Mutex(1, type: .recursive)
-        try mutex.lock { inner in
-            let result = try mutex.tryLock { _ in }
+        try mutex.read { inner in
+            let result = try mutex.tryRead { _ in }
 
             switch result {
             case .success(_):
@@ -70,7 +83,7 @@ final class MutexTests: XCTestCase {
         // Start a long-lasting write-lock:
 
         queue.async {
-            try! mutex.lock { _ in
+            try! mutex.read { _ in
                 let _ = sleep(10)
             }
         }
@@ -87,7 +100,7 @@ final class MutexTests: XCTestCase {
                 group.leave()
             }
 
-            resultOrNil = try! mutex.tryLock { _ in }
+            resultOrNil = try! mutex.tryRead { _ in }
         }
 
         group.wait()
@@ -123,7 +136,7 @@ final class MutexTests: XCTestCase {
                     group.leave()
                 }
 
-                try! mutex.lock { access in
+                try! mutex.write { access in
                     if i % k == 0 {
                         access {
                             $0 += 1
@@ -161,7 +174,7 @@ final class MutexTests: XCTestCase {
                 defer {
                     group.leave()
                 }
-                try! mutex.lock { access in
+                try! mutex.write { access in
                     access {
                         $0 += 2
                     }
@@ -177,13 +190,15 @@ final class MutexTests: XCTestCase {
             }
         }
 
-        assert(value == 2 * count)
+        XCTAssertEqual(value, 2 * count)
     }
 
     static var allTests = [
         ("testInit", testInit),
-        ("testLock", testLock),
-        ("testTryLock", testTryLock),
+        ("testRead", testRead),
+        ("testTryRead", testTryRead),
+        ("testWrite", testWrite),
+        ("testTryWrite", testTryWrite),
         ("testReentrantLockWithNonRecursive", testReentrantLockWithNonRecursive),
         ("testReentrantLockWithRecursive", testReentrantLockWithRecursive),
         ("testLockBlocksLock", testLockBlocksLock),

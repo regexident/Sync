@@ -1,21 +1,11 @@
 import Foundation
 
 public final class Mutex<Wrapped> {
-    public final class Access {
-        private var wrapped: Wrapped
-
-        internal init(_ wrapped: Wrapped) {
-            self.wrapped = wrapped
-        }
-
-        public func callAsFunction<T>(
-            _ closure: (inout Wrapped) throws -> T
-        ) rethrows -> T {
-            try closure(&self.wrapped)
-        }
-    }
+    public typealias Access = ScopedAccess<Wrapped>
 
     private var mutex: pthread_mutex_t
+    private var wrapped: Wrapped
+
     private var access: Access
 
     public let type: MutexType
@@ -54,7 +44,10 @@ public final class Mutex<Wrapped> {
         policy: MutexPolicy = .default
     ) throws {
         self.mutex = .init()
-        self.access = .init(wrapped)
+        self.wrapped = wrapped
+
+        self.access = .init(&self.wrapped)
+
         self.type = type
         self.priorityProtocol = priorityProtocol
         self.processShared = processShared
@@ -70,14 +63,12 @@ public final class Mutex<Wrapped> {
     }
 
     @discardableResult
-    public func lock<T>(
-        _ closure: (Access) throws -> T
+    public func read<T>(
+        _ closure: (Wrapped) throws -> T
     ) throws -> T {
         try self.lock()
 
-        let result = Result {
-            try closure(self.access)
-        }
+        let result = try self.readAssumingLocked(closure)
 
         try self.unlock()
 
@@ -85,16 +76,42 @@ public final class Mutex<Wrapped> {
     }
 
     @discardableResult
-    public func tryLock<T>(
+    public func tryRead<T>(
+        _ closure: (Wrapped) throws -> T
+    ) throws -> Result<T, MutexWouldBlockError> {
+        if case .failure(let error) = try self.tryLock() {
+            return .failure(error)
+        }
+
+        let result = try self.readAssumingLocked(closure)
+
+        try self.unlock()
+
+        return .success(try result.get())
+    }
+
+    @discardableResult
+    public func write<T>(
+        _ closure: (Access) throws -> T
+    ) throws -> T {
+        try self.lock()
+
+        let result = try self.writeAssumingLocked(closure)
+
+        try self.unlock()
+
+        return try result.get()
+    }
+
+    @discardableResult
+    public func tryWrite<T>(
         _ closure: (Access) throws -> T
     ) throws -> Result<T, MutexWouldBlockError> {
         if case .failure(let error) = try self.tryLock() {
             return .failure(error)
         }
 
-        let result = Result {
-            try closure(self.access)
-        }
+        let result = try self.writeAssumingLocked(closure)
 
         try self.unlock()
 
@@ -165,5 +182,17 @@ public final class Mutex<Wrapped> {
         if let error = MutexUnlockError(rawValue: status) {
             throw error
         }
+    }
+
+    private func readAssumingLocked<T>(
+        _ closure: (Wrapped) throws -> T
+    ) rethrows -> Result<T, Swift.Error> {
+        Result { try closure(self.wrapped) }
+    }
+
+    private func writeAssumingLocked<T>(
+        _ closure: (Access) throws -> T
+    ) rethrows -> Result<T, Swift.Error> {
+        Result { try closure(self.access) }
     }
 }

@@ -1,50 +1,12 @@
 import Foundation
 
 public final class RWLock<Wrapped> {
-    public final class ReadAccess {
-        private var pointer: UnsafePointer<Wrapped>
-
-        fileprivate init(_ pointer: UnsafePointer<Wrapped>) {
-            self.pointer = pointer
-        }
-
-        public func callAsFunction<T>(
-            _ closure: (Wrapped) throws -> T
-        ) rethrows -> T {
-            try closure(self.pointer.pointee)
-        }
-    }
-
-    public final class WriteAccess {
-        private var pointer: UnsafeMutablePointer<Wrapped>
-
-        fileprivate init(_ pointer: UnsafeMutablePointer<Wrapped>) {
-            self.pointer = pointer
-        }
-
-        public func callAsFunction<T>(
-            _ closure: (inout Wrapped) throws -> T
-        ) rethrows -> T {
-            try closure(&self.pointer.pointee)
-        }
-    }
-
-    fileprivate final class Access {
-        fileprivate var wrapped: Wrapped
-
-        fileprivate let read: ReadAccess
-        fileprivate let write: WriteAccess
-
-        fileprivate init(_ wrapped: Wrapped) {
-            self.wrapped = wrapped
-
-            self.read = .init(&self.wrapped)
-            self.write = .init(&self.wrapped)
-        }
-    }
+    public typealias Access = Sync.ScopedAccess<Wrapped>
 
     private var rwlock: pthread_rwlock_t
-    private var access: Access
+    private var wrapped: Wrapped
+
+    fileprivate let access: Access
 
     public let processShared: RWLockProcessShared
 
@@ -53,7 +15,10 @@ public final class RWLock<Wrapped> {
         processShared: RWLockProcessShared = .default
     ) throws {
         self.rwlock = .init()
-        self.access = .init(wrapped)
+        self.wrapped = wrapped
+
+        self.access = .init(&self.wrapped)
+
         self.processShared = processShared
 
         try self.initialize()
@@ -65,13 +30,11 @@ public final class RWLock<Wrapped> {
 
     @discardableResult
     public func read<T>(
-        _ closure: (ReadAccess) throws -> T
+        _ closure: (Wrapped) throws -> T
     ) throws -> T {
         try self.readLock()
 
-        let result = Result {
-            try closure(self.access.read)
-        }
+        let result = try self.readAssumingLocked(closure)
 
         try self.unlock()
 
@@ -80,15 +43,13 @@ public final class RWLock<Wrapped> {
 
     @discardableResult
     public func tryRead<T>(
-        _ closure: (ReadAccess) throws -> T
+        _ closure: (Wrapped) throws -> T
     ) throws -> Result<T, RWLockWouldBlockError> {
         if case .failure(let error) = try self.tryReadLock() {
             return .failure(error)
         }
 
-        let result = Result {
-            try closure(self.access.read)
-        }
+        let result = try self.readAssumingLocked(closure)
 
         try self.unlock()
 
@@ -97,13 +58,11 @@ public final class RWLock<Wrapped> {
 
     @discardableResult
     public func write<T>(
-        _ closure: (WriteAccess) throws -> T
+        _ closure: (Access) throws -> T
     ) throws -> T {
         try self.writeLock()
 
-        let result = Result {
-            try closure(self.access.write)
-        }
+        let result = try self.writeAssumingLocked(closure)
 
         try self.unlock()
 
@@ -112,15 +71,13 @@ public final class RWLock<Wrapped> {
 
     @discardableResult
     public func tryWrite<T>(
-        _ closure: (WriteAccess) throws -> T
+        _ closure: (Access) throws -> T
     ) throws -> Result<T, RWLockWouldBlockError> {
         if case .failure(let error) = try self.tryWriteLock() {
             return .failure(error)
         }
 
-        let result = Result {
-            try closure(self.access.write)
-        }
+        let result = try self.writeAssumingLocked(closure)
 
         try self.unlock()
 
@@ -207,5 +164,17 @@ public final class RWLock<Wrapped> {
         if let error = RWLockUnlockError(rawValue: status) {
             throw error
         }
+    }
+
+    private func readAssumingLocked<T>(
+        _ closure: (Wrapped) throws -> T
+    ) rethrows -> Result<T, Swift.Error> {
+        Result { try closure(self.wrapped) }
+    }
+
+    private func writeAssumingLocked<T>(
+        _ closure: (Access) throws -> T
+    ) rethrows -> Result<T, Swift.Error> {
+        Result { try closure(self.access) }
     }
 }

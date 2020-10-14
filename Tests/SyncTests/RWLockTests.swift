@@ -8,11 +8,7 @@ final class RWLockTests: XCTestCase {
     func testInit() throws {
         let rwlock = try RWLock(1234)
 
-        let value = try rwlock.read { access in
-            access {
-                $0
-            }
-        }
+        let value = try rwlock.read { $0 }
 
         XCTAssertEqual(value, 1234)
     }
@@ -260,11 +256,7 @@ final class RWLockTests: XCTestCase {
 
         group.wait()
 
-        let result = try rwlock.read { access in
-            access {
-                $0
-            }
-        }
+        let result = try rwlock.read { $0 }
 
         XCTAssertEqual(result, j / k)
     }

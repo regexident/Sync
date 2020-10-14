@@ -8,6 +8,8 @@ import Foundation
 /// that it is protecting. The data can only be accessed through the `access`
 /// handle passed to the callback of `lock` and `tryLock`, which guarantees
 /// that the data is only ever accessed when the mutex is locked.
+///
+/// Note: The implementation is based on `os_unfair_lock_s` (4 bytes).
 @available(macOS 10.12, iOS 10.0, tvOS 10.0, watchOS 3.0, *)
 public final class UnfairMutex<Wrapped>: Sync {
     public typealias WouldBlockError = MutexWouldBlockError

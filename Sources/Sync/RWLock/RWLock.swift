@@ -12,6 +12,8 @@ import Foundation
 /// lock to become available. An `RWLock` will allow any number of readers
 /// to acquire the lock as long as a writer is not holding the lock.
 ///
+/// Note: The implementation is based on `pthread_rwlock_t` (200 bytes).
+///
 /// **Important**: `RWLock` does not support priority inversion avoidance.
 public final class RWLock<Wrapped>: Sync {
     public typealias WouldBlockError = RWLockWouldBlockError

@@ -12,6 +12,8 @@ A fair mutual exclusion primitive useful for protecting shared data
 > that it is protecting. The data can only be accessed through the `access`
 > handle passed to the callback of `lock` and `tryLock`, which guarantees
 > that the data is only ever accessed when the mutex is locked.
+>
+> Note: The implementation is based on `pthread_mutex_t` (64 bytes).
 
 ### Minimal Example
 
@@ -75,6 +77,8 @@ An unfair mutual exclusion primitive useful for protecting shared data
 > that it is protecting. The data can only be accessed through the `access`
 > handle passed to the callback of `lock` and `tryLock`, which guarantees
 > that the data is only ever accessed when the mutex is locked.
+>
+> Note: The implementation is based on `os_unfair_lock_s` (4 bytes).
 
 ### Minimal Example
 
@@ -141,6 +145,8 @@ A reader-writer lock
 > that acquire the lock, therefore blocking any threads waiting for the
 > lock to become available. An `RWLock` will allow any number of readers
 > to acquire the lock as long as a writer is not holding the lock.
+>
+> Note: The implementation is based on `pthread_rwlock_t` (200 bytes).
 > 
 > **Important**: `RWLock` does not support priority inversion avoidance.
 

@@ -8,6 +8,8 @@ import Foundation
 /// that it is protecting. The data can only be accessed through the `access`
 /// handle passed to the callback of `lock` and `tryLock`, which guarantees
 /// that the data is only ever accessed when the mutex is locked.
+///
+/// Note: The implementation is based on `pthread_mutex_t` (64 bytes).
 public final class Mutex<Wrapped>: Sync {
     public typealias WouldBlockError = MutexWouldBlockError
 

@@ -31,8 +31,6 @@ public final class RWLock<Wrapped>: Sync {
     private var wrapped: Wrapped
     private var state: State
 
-    fileprivate let access: ScopedAccess<Wrapped>
-
     public let processShared: RWLockProcessShared
 
     /// Creates a read-write lock corresponding to the provided attributes.
@@ -43,8 +41,6 @@ public final class RWLock<Wrapped>: Sync {
         self.rwlock = .init()
         self.wrapped = wrapped
         self.state = .normal
-
-        self.access = .init(&self.wrapped)
 
         self.processShared = processShared
 
@@ -309,7 +305,11 @@ public final class RWLock<Wrapped>: Sync {
     ) rethrows -> Result<T, Swift.Error> {
         switch self.state {
         case .normal:
-            return Result { try closure(self.access) }
+            return Result {
+                try withUnsafeMutablePointer(to: &self.wrapped) { pointer in
+                    try closure(ScopedAccess(pointer))
+                }
+            }
         case .consumed:
             return .failure(RWLockInvalidatedError())
         }

@@ -26,8 +26,6 @@ public final class Mutex<Wrapped>: Sync {
     private var wrapped: Wrapped
     private var state: State
 
-    private var access: ScopedAccess<Wrapped>
-
     public let type: MutexType
     public let priorityProtocol: MutexPriorityProtocol
     public let processShared: MutexProcessShared
@@ -68,8 +66,6 @@ public final class Mutex<Wrapped>: Sync {
         self.mutex = .init()
         self.wrapped = wrapped
         self.state = .normal
-
-        self.access = .init(&self.wrapped)
 
         self.type = type
         self.priorityProtocol = priorityProtocol
@@ -323,7 +319,11 @@ public final class Mutex<Wrapped>: Sync {
     ) rethrows -> Result<T, Swift.Error> {
         switch self.state {
         case .normal:
-            return Result { try closure(self.access) }
+            return Result {
+                try withUnsafeMutablePointer(to: &self.wrapped) { pointer in
+                    try closure(ScopedAccess(pointer))
+                }
+            }
         case .consumed:
             return .failure(MutexInvalidatedError())
         }

@@ -27,8 +27,6 @@ public final class UnfairMutex<Wrapped>: Sync {
     private var wrapped: Wrapped
     private var state: State
 
-    private var access: ScopedAccess<Wrapped>
-
     /// Creates an unfair mutex corresponding to the provided attributes.
     public init(
         _ wrapped: Wrapped
@@ -36,8 +34,6 @@ public final class UnfairMutex<Wrapped>: Sync {
         self.unfairLock = .init()
         self.wrapped = wrapped
         self.state = .normal
-
-        self.access = .init(&self.wrapped)
     }
 
     /// Performs a blocking exclusive read.
@@ -226,7 +222,11 @@ public final class UnfairMutex<Wrapped>: Sync {
 
         switch self.state {
         case .normal:
-            return Result { try closure(self.access) }
+            return Result {
+                try withUnsafeMutablePointer(to: &self.wrapped) { pointer in
+                    try closure(ScopedAccess(pointer))
+                }
+            }
         case .consumed:
             return .failure(MutexInvalidatedError())
         }

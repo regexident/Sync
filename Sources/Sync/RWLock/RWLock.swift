@@ -204,30 +204,32 @@ public final class RWLock<Wrapped>: Sync {
     private func initialize() throws {
         var attr = pthread_rwlockattr_t()
 
-        var status: Int32
+        try withUnsafeMutablePointer(to: &attr) { attrPtr in
+            var status: Int32
 
-        status = pthread_rwlockattr_init(&attr)
+            status = pthread_rwlockattr_init(attrPtr)
 
-        if let error = RWLockAttributeInitError(rawValue: status) {
-            throw error
-        }
+            if let error = RWLockAttributeInitError(rawValue: status) {
+                throw error
+            }
 
-        pthread_rwlockattr_setpshared(&attr, self.processShared.rawValue)
+            pthread_rwlockattr_setpshared(attrPtr, self.processShared.rawValue)
 
-        status = pthread_rwlock_init(&self.rwlock, &attr)
+            status = pthread_rwlock_init(&self.rwlock, attrPtr)
 
-        let rwlockInitError = RWLockInitError(rawValue: status)
+            let rwlockInitError = RWLockInitError(rawValue: status)
 
-        status = pthread_rwlockattr_destroy(&attr)
+            status = pthread_rwlockattr_destroy(attrPtr)
 
-        let rwlockAttributeDestroyError = RWLockAttributeDestroyError(rawValue: status)
+            let rwlockAttributeDestroyError = RWLockAttributeDestroyError(rawValue: status)
 
-        if let error = rwlockInitError {
-            throw error
-        }
+            if let error = rwlockInitError {
+                throw error
+            }
 
-        if let error = rwlockAttributeDestroyError {
-            throw error
+            if let error = rwlockAttributeDestroyError {
+                throw error
+            }
         }
     }
 

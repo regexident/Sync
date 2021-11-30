@@ -236,34 +236,36 @@ public final class Mutex<Wrapped>: Sync {
     ) throws {
         var attr = pthread_mutexattr_t()
 
-        var status: Int32
+        try withUnsafeMutablePointer(to: &attr) { attrPtr in
+            var status: Int32
+            
+            status = pthread_mutexattr_init(attrPtr)
 
-        status = pthread_mutexattr_init(&attr)
+            if let error = MutexAttributeInitError(rawValue: status) {
+                throw error
+            }
 
-        if let error = MutexAttributeInitError(rawValue: status) {
-            throw error
-        }
+            pthread_mutexattr_settype(attrPtr, self.type.rawValue)
+            pthread_mutexattr_setprioceiling(attrPtr, priorityCeiling.rawValue)
+            pthread_mutexattr_setprotocol(attrPtr, self.priorityProtocol.rawValue)
+            pthread_mutexattr_setpshared(attrPtr, self.processShared.rawValue)
+            pthread_mutexattr_setpolicy_np(attrPtr, self.policy.rawValue)
 
-        pthread_mutexattr_settype(&attr, self.type.rawValue)
-        pthread_mutexattr_setprioceiling(&attr, priorityCeiling.rawValue)
-        pthread_mutexattr_setprotocol(&attr, self.priorityProtocol.rawValue)
-        pthread_mutexattr_setpshared(&attr, self.processShared.rawValue)
-        pthread_mutexattr_setpolicy_np(&attr, self.policy.rawValue)
+            status = pthread_mutex_init(&self.mutex, attrPtr)
 
-        status = pthread_mutex_init(&self.mutex, &attr)
+            let mutexInitError = MutexInitError(rawValue: status)
 
-        let mutexInitError = MutexInitError(rawValue: status)
+            status = pthread_mutexattr_destroy(attrPtr)
 
-        status = pthread_mutexattr_destroy(&attr)
+            let mutexAttributeDestroyError = MutexAttributeDestroyError(rawValue: status)
 
-        let mutexAttributeDestroyError = MutexAttributeDestroyError(rawValue: status)
+            if let error = mutexInitError {
+                throw error
+            }
 
-        if let error = mutexInitError {
-            throw error
-        }
-
-        if let error = mutexAttributeDestroyError {
-            throw error
+            if let error = mutexAttributeDestroyError {
+                throw error
+            }
         }
     }
 

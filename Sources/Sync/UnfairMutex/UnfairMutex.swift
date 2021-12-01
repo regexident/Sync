@@ -115,7 +115,7 @@ public final class UnfairMutex<Wrapped>: Sync {
     ///   The value returned by `closure`.
     @discardableResult
     public func write<T>(
-        _ closure: (ScopedAccess<Wrapped>) throws -> T
+        _ closure: (inout Wrapped) throws -> T
     ) throws -> T {
         self.lock()
 
@@ -142,7 +142,7 @@ public final class UnfairMutex<Wrapped>: Sync {
     ///   The value returned by `closure`, or `MutexWouldBlockError`.
     @discardableResult
     public func tryWrite<T>(
-        _ closure: (ScopedAccess<Wrapped>) throws -> T
+        _ closure: (inout Wrapped) throws -> T
     ) throws -> Result<T, MutexWouldBlockError> {
         if case .failure(let error) = try self.tryLock() {
             return .failure(error)
@@ -223,17 +223,13 @@ public final class UnfairMutex<Wrapped>: Sync {
     }
 
     private func writeAssumingLocked<T>(
-        _ closure: (ScopedAccess<Wrapped>) throws -> T
+        _ closure: (inout Wrapped) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
         os_unfair_lock_assert_owner(self.unfairLock)
 
         switch self.state {
         case .normal:
-            return Result {
-                try withUnsafeMutablePointer(to: &self.wrapped) { pointer in
-                    try closure(ScopedAccess(pointer))
-                }
-            }
+            return Result { try closure(&self.wrapped) }
         case .consumed:
             return .failure(MutexInvalidatedError())
         }

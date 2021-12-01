@@ -55,10 +55,8 @@ for _ in 0..<count {
         defer {
             group.leave()
         }
-        try! mutex.write { access in
-            access {
-                $0 += 2
-            }
+        try! mutex.write { value in
+            value += 2
         }
     }
 }
@@ -125,10 +123,8 @@ for _ in 0..<count {
         defer {
             group.leave()
         }
-        try! unfairMutex.write { access in
-            access {
-                $0 += 2
-            }
+        try! unfairMutex.write { value in
+            value += 2
         }
     }
 }
@@ -200,10 +196,8 @@ for _ in 0..<count {
         defer {
             group.leave()
         }
-        try! rwlock.write { access in
-            access {
-                $0 += 2
-            }
+        try! rwlock.write { value in
+            value += 2
         }
     }
 }

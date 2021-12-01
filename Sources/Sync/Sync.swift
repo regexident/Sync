@@ -62,7 +62,7 @@ public protocol Sync {
     ///   The value returned by `closure`.
     @discardableResult
     func write<T>(
-        _ closure: (ScopedAccess<Wrapped>) throws -> T
+        _ closure: (inout Wrapped) throws -> T
     ) throws -> T
 
     /// Performs a non-blocking write.
@@ -81,7 +81,7 @@ public protocol Sync {
     ///   The value returned by `closure`, or `WouldBlockError`.
     @discardableResult
     func tryWrite<T>(
-        _ closure: (ScopedAccess<Wrapped>) throws -> T
+        _ closure: (inout Wrapped) throws -> T
     ) throws -> Result<T, WouldBlockError>
 
     /// Performs a blocking read and returns the wrapped value,

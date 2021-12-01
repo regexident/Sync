@@ -27,7 +27,7 @@ public final class RWLock<Wrapped>: Sync {
         case consumed
     }
 
-    private var rwlock: pthread_rwlock_t
+    private var rwlock: UnsafeMutablePointer<pthread_rwlock_t>
     private var wrapped: Wrapped
     private var state: State
 
@@ -38,7 +38,9 @@ public final class RWLock<Wrapped>: Sync {
         _ wrapped: Wrapped,
         processShared: RWLockProcessShared = .default
     ) throws {
-        self.rwlock = .init()
+        self.rwlock = .allocate(capacity: 1)
+        self.rwlock.initialize(repeating: .init(), count: 1)
+
         self.wrapped = wrapped
         self.state = .normal
 
@@ -48,7 +50,14 @@ public final class RWLock<Wrapped>: Sync {
     }
 
     deinit {
-        try! self.destroy()
+        let status = pthread_rwlock_destroy(self.rwlock)
+
+        self.rwlock.deinitialize(count: 1)
+        self.rwlock.deallocate()
+
+        if let error = RWLockDestroyError(rawValue: status) {
+            try! { throw error }()
+        }
     }
 
     /// Performs a blocking non-exclusive read.
@@ -215,7 +224,7 @@ public final class RWLock<Wrapped>: Sync {
 
             pthread_rwlockattr_setpshared(attrPtr, self.processShared.rawValue)
 
-            status = pthread_rwlock_init(&self.rwlock, attrPtr)
+            status = pthread_rwlock_init(self.rwlock, attrPtr)
 
             let rwlockInitError = RWLockInitError(rawValue: status)
 
@@ -233,16 +242,8 @@ public final class RWLock<Wrapped>: Sync {
         }
     }
 
-    private func destroy() throws {
-        let status = pthread_rwlock_destroy(&self.rwlock)
-
-        if let error = RWLockDestroyError(rawValue: status) {
-            throw error
-        }
-    }
-
     private func tryReadLock() throws -> Result<(), RWLockWouldBlockError> {
-        let status = pthread_rwlock_tryrdlock(&self.rwlock)
+        let status = pthread_rwlock_tryrdlock(self.rwlock)
 
         if let error = RWLockTryReadLockError(rawValue: status) {
             switch error {
@@ -255,7 +256,7 @@ public final class RWLock<Wrapped>: Sync {
     }
 
     private func readLock() throws {
-        let status = pthread_rwlock_rdlock(&self.rwlock)
+        let status = pthread_rwlock_rdlock(self.rwlock)
 
         if let error = RWLockReadLockError(rawValue: status) {
             throw error
@@ -263,7 +264,7 @@ public final class RWLock<Wrapped>: Sync {
     }
 
     private func tryWriteLock() throws -> Result<(), RWLockWouldBlockError> {
-        let status = pthread_rwlock_trywrlock(&self.rwlock)
+        let status = pthread_rwlock_trywrlock(self.rwlock)
 
         if let error = RWLockTryWriteLockError(rawValue: status) {
             switch error {
@@ -276,7 +277,7 @@ public final class RWLock<Wrapped>: Sync {
     }
 
     private func writeLock() throws {
-        let status = pthread_rwlock_wrlock(&self.rwlock)
+        let status = pthread_rwlock_wrlock(self.rwlock)
 
         if let error = RWLockWriteLockError(rawValue: status) {
             throw error
@@ -284,7 +285,7 @@ public final class RWLock<Wrapped>: Sync {
     }
 
     private func unlock() throws {
-        let status = pthread_rwlock_unlock(&self.rwlock)
+        let status = pthread_rwlock_unlock(self.rwlock)
 
         if let error = RWLockUnlockError(rawValue: status) {
             throw error

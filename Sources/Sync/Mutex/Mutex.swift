@@ -22,7 +22,7 @@ public final class Mutex<Wrapped>: Sync {
         case consumed
     }
 
-    private var mutex: pthread_mutex_t
+    private var mutex: UnsafeMutablePointer<pthread_mutex_t>
     private var wrapped: Wrapped
     private var state: State
 
@@ -36,7 +36,7 @@ public final class Mutex<Wrapped>: Sync {
         get {
             var rawValue: Int32 = 0
             let status = pthread_mutex_getprioceiling(
-                &self.mutex,
+                self.mutex,
                 &rawValue
             )
             assert(status == 0)
@@ -46,7 +46,7 @@ public final class Mutex<Wrapped>: Sync {
             let rawValue: Int32 = newValue.rawValue
             var oldRawValue: Int32 = 0
             let status = pthread_mutex_setprioceiling(
-                &self.mutex,
+                self.mutex,
                 rawValue,
                 &oldRawValue
             )
@@ -63,7 +63,9 @@ public final class Mutex<Wrapped>: Sync {
         processShared: MutexProcessShared = .default,
         policy: MutexPolicy = .default
     ) throws {
-        self.mutex = .init()
+        self.mutex = .allocate(capacity: 1)
+        self.mutex.initialize(repeating: .init(), count: 1)
+
         self.wrapped = wrapped
         self.state = .normal
 
@@ -78,7 +80,14 @@ public final class Mutex<Wrapped>: Sync {
     }
 
     deinit {
-        try! self.destroy()
+        let status = pthread_mutex_destroy(self.mutex)
+
+        self.mutex.deinitialize(count: 1)
+        self.mutex.deallocate()
+
+        if let error = MutexDestroyError(rawValue: status) {
+            try! { throw error }()
+        }
     }
 
     /// Performs a blocking exclusive read.
@@ -251,7 +260,7 @@ public final class Mutex<Wrapped>: Sync {
             pthread_mutexattr_setpshared(attrPtr, self.processShared.rawValue)
             pthread_mutexattr_setpolicy_np(attrPtr, self.policy.rawValue)
 
-            status = pthread_mutex_init(&self.mutex, attrPtr)
+            status = pthread_mutex_init(self.mutex, attrPtr)
 
             let mutexInitError = MutexInitError(rawValue: status)
 
@@ -269,16 +278,8 @@ public final class Mutex<Wrapped>: Sync {
         }
     }
 
-    private func destroy() throws {
-        let status = pthread_mutex_destroy(&self.mutex)
-
-        if let error = MutexDestroyError(rawValue: status) {
-            throw error
-        }
-    }
-
     private func tryLock() throws -> Result<(), MutexWouldBlockError> {
-        let status = pthread_mutex_trylock(&self.mutex)
+        let status = pthread_mutex_trylock(self.mutex)
 
         if let error = MutexTryLockError(rawValue: status) {
             switch error {
@@ -291,7 +292,7 @@ public final class Mutex<Wrapped>: Sync {
     }
 
     private func lock() throws {
-        let status = pthread_mutex_lock(&self.mutex)
+        let status = pthread_mutex_lock(self.mutex)
 
         if let error = MutexLockError(rawValue: status) {
             throw error
@@ -299,7 +300,7 @@ public final class Mutex<Wrapped>: Sync {
     }
 
     private func unlock() throws {
-        let status = pthread_mutex_unlock(&self.mutex)
+        let status = pthread_mutex_unlock(self.mutex)
         if let error = MutexUnlockError(rawValue: status) {
             throw error
         }

@@ -23,7 +23,7 @@ public final class UnfairMutex<Wrapped>: Sync {
         case consumed
     }
 
-    private var unfairLock: os_unfair_lock_s
+    private var unfairLock: UnsafeMutablePointer<os_unfair_lock_s>
     private var wrapped: Wrapped
     private var state: State
 
@@ -31,9 +31,16 @@ public final class UnfairMutex<Wrapped>: Sync {
     public init(
         _ wrapped: Wrapped
     ) throws {
-        self.unfairLock = .init()
+        self.unfairLock = .allocate(capacity: 1)
+        self.unfairLock.initialize(repeating: .init(), count: 1)
+
         self.wrapped = wrapped
         self.state = .normal
+    }
+
+    deinit {
+        self.unfairLock.deinitialize(count: 1)
+        self.unfairLock.deallocate()
     }
 
     /// Performs a blocking exclusive read.
@@ -187,7 +194,7 @@ public final class UnfairMutex<Wrapped>: Sync {
     }
 
     private func tryLock() throws -> Result<(), MutexWouldBlockError> {
-        guard os_unfair_lock_trylock(&self.unfairLock) else {
+        guard os_unfair_lock_trylock(self.unfairLock) else {
             return .failure(MutexWouldBlockError())
         }
 
@@ -195,17 +202,17 @@ public final class UnfairMutex<Wrapped>: Sync {
     }
 
     private func lock() {
-        os_unfair_lock_lock(&self.unfairLock)
+        os_unfair_lock_lock(self.unfairLock)
     }
 
     private func unlock() {
-        os_unfair_lock_unlock(&self.unfairLock)
+        os_unfair_lock_unlock(self.unfairLock)
     }
 
     private func readAssumingLocked<T>(
         _ closure: (Wrapped) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        os_unfair_lock_assert_owner(&self.unfairLock)
+        os_unfair_lock_assert_owner(self.unfairLock)
 
         switch self.state {
         case .normal:
@@ -218,7 +225,7 @@ public final class UnfairMutex<Wrapped>: Sync {
     private func writeAssumingLocked<T>(
         _ closure: (ScopedAccess<Wrapped>) throws -> T
     ) rethrows -> Result<T, Swift.Error> {
-        os_unfair_lock_assert_owner(&self.unfairLock)
+        os_unfair_lock_assert_owner(self.unfairLock)
 
         switch self.state {
         case .normal:

@@ -137,11 +137,9 @@ final class UnfairMutexTests: XCTestCase {
                     group.leave()
                 }
 
-                try! mutex.write { access in
+                try! mutex.write { value in
                     if i % k == 0 {
-                        access {
-                            $0 += 1
-                        }
+                        value += 1
                     }
                 }
             }
@@ -171,10 +169,8 @@ final class UnfairMutexTests: XCTestCase {
                 defer {
                     group.leave()
                 }
-                try! mutex.write { access in
-                    access {
-                        $0 += 2
-                    }
+                try! mutex.write { value in
+                    value += 2
                 }
             }
         }

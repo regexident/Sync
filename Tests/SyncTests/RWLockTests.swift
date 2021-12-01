@@ -290,10 +290,8 @@ final class RWLockTests: XCTestCase {
                 }
 
                 if i % k == 0 {
-                    try! rwlock.write { access in
-                        access {
-                            $0 += 1
-                        }
+                    try! rwlock.write { value in
+                        value += 1
                     }
                 } else {
                     try! rwlock.read { _ in }
@@ -327,10 +325,8 @@ final class RWLockTests: XCTestCase {
                 defer {
                     group.leave()
                 }
-                try! rwlock.write { access in
-                    access {
-                        $0 += 2
-                    }
+                try! rwlock.write { value in
+                    value += 2
                 }
             }
         }

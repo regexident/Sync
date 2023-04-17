@@ -80,9 +80,9 @@ public final class RWLock<Wrapped>: Sync {
     ) throws -> T {
         try self.readLock()
 
-        let result = try self.readAssumingLocked(closure)
-
-        try self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.readAssumingLocked(closure)
+        }
 
         return try result.get()
     }
@@ -109,9 +109,9 @@ public final class RWLock<Wrapped>: Sync {
             return .failure(error)
         }
 
-        let result = try self.readAssumingLocked(closure)
-
-        try self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.readAssumingLocked(closure)
+        }
 
         return .success(try result.get())
     }
@@ -136,9 +136,9 @@ public final class RWLock<Wrapped>: Sync {
     ) throws -> T {
         try self.writeLock()
 
-        let result = try self.writeAssumingLocked(closure)
-
-        try self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.writeAssumingLocked(closure)
+        }
 
         return try result.get()
     }
@@ -165,9 +165,9 @@ public final class RWLock<Wrapped>: Sync {
             return .failure(error)
         }
 
-        let result = try self.writeAssumingLocked(closure)
-
-        try self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.writeAssumingLocked(closure)
+        }
 
         return .success(try result.get())
     }
@@ -239,6 +239,19 @@ public final class RWLock<Wrapped>: Sync {
             if let error = rwlockAttributeDestroyError {
                 throw error
             }
+        }
+    }
+
+    private func tryOrUnlock<T>(
+        _ closure: () throws -> T
+    ) throws -> T {
+        do {
+            let result = try closure()
+            try self.unlock()
+            return result
+        } catch let error {
+            try self.unlock()
+            throw error
         }
     }
 

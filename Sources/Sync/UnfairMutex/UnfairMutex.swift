@@ -63,9 +63,9 @@ public final class UnfairMutex<Wrapped>: Sync {
     ) throws -> T {
         self.lock()
 
-        let result = try self.readAssumingLocked(closure)
-
-        self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.readAssumingLocked(closure)
+        }
 
         return try result.get()
     }
@@ -92,9 +92,9 @@ public final class UnfairMutex<Wrapped>: Sync {
             return .failure(error)
         }
 
-        let result = try self.readAssumingLocked(closure)
-
-        self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.readAssumingLocked(closure)
+        }
 
         return .success(try result.get())
     }
@@ -119,9 +119,9 @@ public final class UnfairMutex<Wrapped>: Sync {
     ) throws -> T {
         self.lock()
 
-        let result = try self.writeAssumingLocked(closure)
-
-        self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.writeAssumingLocked(closure)
+        }
 
         return try result.get()
     }
@@ -148,9 +148,9 @@ public final class UnfairMutex<Wrapped>: Sync {
             return .failure(error)
         }
 
-        let result = try self.writeAssumingLocked(closure)
-
-        self.unlock()
+        let result = try self.tryOrUnlock {
+            try self.writeAssumingLocked(closure)
+        }
 
         return .success(try result.get())
     }
@@ -199,6 +199,16 @@ public final class UnfairMutex<Wrapped>: Sync {
         }
 
         return .success(())
+    }
+
+    private func tryOrUnlock<T>(
+        _ closure: () throws -> T
+    ) throws -> T {
+        defer {
+            self.unlock()
+        }
+
+        return try closure()
     }
 
     private func lock() {
